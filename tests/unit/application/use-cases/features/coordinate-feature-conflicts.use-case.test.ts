@@ -3,28 +3,50 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CoordinateFeatureConflictsUseCase } from '@/application/use-cases/features/coordinate-feature-conflicts.use-case.js';
 import type { ReparentFeatureUseCase } from '@/application/use-cases/features/reparent-feature.use-case.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
-import type { IGitPrService, FileDiff } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type {
+  IGitPrService,
+  FileDiff,
+} from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
 import { BuildMode, SdlcLifecycle, type Feature } from '@/domain/generated/output.js';
 
 function makeFeature(id: string, branch: string, overrides: Partial<Feature> = {}): Feature {
   return {
-    id, branch, name: id, slug: id, description: id, userQuery: id,
-    repositoryPath: '/repo', lifecycle: SdlcLifecycle.Implementation,
-    messages: [], relatedArtifacts: [], buildMode: BuildMode.Application,
-    fast: false, push: false, openPr: false, forkAndPr: false, commitSpecs: true,
-    ciWatchEnabled: true, enableEvidence: false, injectSkills: false,
+    id,
+    branch,
+    name: id,
+    slug: id,
+    description: id,
+    userQuery: id,
+    repositoryPath: '/repo',
+    lifecycle: SdlcLifecycle.Implementation,
+    messages: [],
+    relatedArtifacts: [],
+    buildMode: BuildMode.Application,
+    fast: false,
+    push: false,
+    openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-    createdAt: new Date(), updatedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   };
 }
 
 function changed(path: string): FileDiff {
   return {
-    path, status: 'modified', additions: 1, deletions: 0, hunks: [],
+    path,
+    status: 'modified',
+    additions: 1,
+    deletions: 0,
+    hunks: [],
   };
 }
 
@@ -52,9 +74,9 @@ describe('CoordinateFeatureConflictsUseCase', () => {
     } as unknown as IGitPrService;
     worktrees = {
       exists: vi.fn().mockResolvedValue(true),
-      getWorktreePath: vi.fn().mockImplementation(
-        (_repo: string, branch: string) => '/repo/.worktrees/' + branch
-      ),
+      getWorktreePath: vi
+        .fn()
+        .mockImplementation((_repo: string, branch: string) => `/repo/.worktrees/${branch}`),
     } as unknown as IWorktreeService;
     features = {
       findById: vi.fn().mockResolvedValue(current),
@@ -73,7 +95,11 @@ describe('CoordinateFeatureConflictsUseCase', () => {
     } as unknown as ReparentFeatureUseCase;
 
     useCase = new CoordinateFeatureConflictsUseCase(
-      features, git, worktrees, agentProvider, reparent
+      features,
+      git,
+      worktrees,
+      agentProvider,
+      reparent
     );
   });
 
@@ -85,7 +111,8 @@ describe('CoordinateFeatureConflictsUseCase', () => {
       expect.objectContaining({ maxTurns: 1, disableMcp: true, tools: [] })
     );
     expect(reparent.execute).toHaveBeenCalledWith({
-      featureId: 'current', parentId: 'peer',
+      featureId: 'current',
+      parentId: 'peer',
     });
   });
 
@@ -118,9 +145,9 @@ describe('CoordinateFeatureConflictsUseCase', () => {
   });
 
   it('does not reinterpret existing dependencies as new authority', async () => {
-    vi.mocked(features.findById).mockResolvedValue(makeFeature(
-      'current', 'feat/current', { parentId: 'another' }
-    ));
+    vi.mocked(features.findById).mockResolvedValue(
+      makeFeature('current', 'feat/current', { parentId: 'another' })
+    );
     expect(await useCase.execute('current')).toBe('no-conflict');
     expect(agentProvider.getExecutor).not.toHaveBeenCalled();
   });

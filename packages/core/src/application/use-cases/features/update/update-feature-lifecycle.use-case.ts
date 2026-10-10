@@ -97,8 +97,7 @@ export class UpdateFeatureLifecycleUseCase {
       this.coordinationEnabled &&
       this.coordinator &&
       previousLifecycle !== input.lifecycle &&
-      (input.lifecycle === SdlcLifecycle.Implementation ||
-        input.lifecycle === SdlcLifecycle.Review)
+      (input.lifecycle === SdlcLifecycle.Implementation || input.lifecycle === SdlcLifecycle.Review)
     ) {
       try {
         const outcome = await this.coordinator.execute(input.featureId);

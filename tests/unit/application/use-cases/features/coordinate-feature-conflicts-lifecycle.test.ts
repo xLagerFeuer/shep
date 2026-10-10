@@ -10,14 +10,29 @@ import { BuildMode, SdlcLifecycle, type Feature } from '@/domain/generated/outpu
 
 function feature(): Feature {
   return {
-    id: 'current', name: 'Current', slug: 'current', description: '',
-    userQuery: '', repositoryPath: '/repo', branch: 'feat/current',
-    lifecycle: SdlcLifecycle.Planning, messages: [], relatedArtifacts: [],
-    buildMode: BuildMode.Application, fast: false, push: false, openPr: false,
-    forkAndPr: false, commitSpecs: true, ciWatchEnabled: true, enableEvidence: false,
-    injectSkills: false, commitEvidence: false,
+    id: 'current',
+    name: 'Current',
+    slug: 'current',
+    description: '',
+    userQuery: '',
+    repositoryPath: '/repo',
+    branch: 'feat/current',
+    lifecycle: SdlcLifecycle.Planning,
+    messages: [],
+    relatedArtifacts: [],
+    buildMode: BuildMode.Application,
+    fast: false,
+    push: false,
+    openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    injectSkills: false,
+    commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-    createdAt: new Date(), updatedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -28,12 +43,23 @@ describe('S2 coordination lifecycle opt-in', () => {
       findById: vi.fn().mockResolvedValue(stored),
       update: vi.fn().mockResolvedValue(undefined),
     } as unknown as IFeatureRepository;
-    const unblock = { execute: vi.fn().mockResolvedValue([]) } as unknown as CheckAndUnblockFeaturesUseCase;
-    const queued = { execute: vi.fn().mockResolvedValue({}) } as unknown as AdmitQueuedFeaturesUseCase;
-    const coordinator = { execute: vi.fn().mockResolvedValue('continued') } as unknown as CoordinateFeatureConflictsUseCase;
+    const unblock = {
+      execute: vi.fn().mockResolvedValue([]),
+    } as unknown as CheckAndUnblockFeaturesUseCase;
+    const queued = {
+      execute: vi.fn().mockResolvedValue({}),
+    } as unknown as AdmitQueuedFeaturesUseCase;
+    const coordinator = {
+      execute: vi.fn().mockResolvedValue('continued'),
+    } as unknown as CoordinateFeatureConflictsUseCase;
     const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as ILogger;
     const subject = new UpdateFeatureLifecycleUseCase(
-      repo, unblock, queued, logger, coordinator, enabled
+      repo,
+      unblock,
+      queued,
+      logger,
+      coordinator,
+      enabled
     );
     return { subject, coordinator, repo, logger };
   }
@@ -61,9 +87,12 @@ describe('S2 coordination lifecycle opt-in', () => {
   it('isolates unavailable coordination from the lifecycle transition', async () => {
     const { subject, coordinator, repo, logger } = setup(true);
     vi.mocked(coordinator.execute).mockRejectedValue(new Error('model unavailable'));
-    await expect(subject.execute({
-      featureId: 'current', lifecycle: SdlcLifecycle.Implementation,
-    })).resolves.toBeUndefined();
+    await expect(
+      subject.execute({
+        featureId: 'current',
+        lifecycle: SdlcLifecycle.Implementation,
+      })
+    ).resolves.toBeUndefined();
     expect(repo.update).toHaveBeenCalledOnce();
     expect(logger.warn).toHaveBeenCalledOnce();
   });

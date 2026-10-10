@@ -9,7 +9,10 @@ import { injectable, inject } from 'tsyringe';
 import { SdlcLifecycle, type Feature } from '../../../domain/generated/output.js';
 import { satisfiesDependencyGate } from '../../../domain/lifecycle-gates.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
-import type { IGitPrService, FileDiff } from '../../ports/output/services/git-pr-service.interface.js';
+import type {
+  IGitPrService,
+  FileDiff,
+} from '../../ports/output/services/git-pr-service.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IAgentExecutorProvider } from '../../ports/output/agents/agent-executor-provider.interface.js';
 import { ReparentFeatureUseCase } from './reparent-feature.use-case.js';
@@ -32,17 +35,18 @@ interface Evidence {
   fingerprint: string;
 }
 
-const ELIGIBLE = new Set<SdlcLifecycle>([
-  SdlcLifecycle.Implementation,
-  SdlcLifecycle.Review,
-]);
+const ELIGIBLE = new Set<SdlcLifecycle>([SdlcLifecycle.Implementation, SdlcLifecycle.Review]);
 const MAX_PEERS = 8;
 const MAX_PATHS = 24;
 
 function changedPaths(diffs: FileDiff[]): string[] {
-  return [...new Set(diffs.flatMap((diff) => [diff.path, diff.oldPath].filter(
-    (p): p is string => typeof p === 'string' && p.length > 0
-  )))].sort();
+  return [
+    ...new Set(
+      diffs.flatMap((diff) =>
+        [diff.path, diff.oldPath].filter((p): p is string => typeof p === 'string' && p.length > 0)
+      )
+    ),
+  ].sort();
 }
 
 function parseDecision(raw: string): { action: 'defer' | 'continue'; rationale: string } | null {
@@ -51,8 +55,12 @@ function parseDecision(raw: string): { action: 'defer' | 'continue'; rationale: 
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const record = value as Record<string, unknown>;
     if (record.action !== 'defer' && record.action !== 'continue') return null;
-    if (typeof record.rationale !== 'string' || record.rationale.trim().length < 5 ||
-        record.rationale.length > 2000) return null;
+    if (
+      typeof record.rationale !== 'string' ||
+      record.rationale.trim().length < 5 ||
+      record.rationale.length > 2000
+    )
+      return null;
     if (Object.keys(record).some((key) => key !== 'action' && key !== 'rationale')) return null;
     return { action: record.action, rationale: record.rationale };
   } catch {
@@ -89,7 +97,9 @@ export class CoordinateFeatureConflictsUseCase {
       JSON.stringify({
         currentFeature: { id: source.id, name: source.name, branch: source.branch },
         otherFeature: {
-          id: collision.peer.id, name: collision.peer.name, branch: collision.peer.branch,
+          id: collision.peer.id,
+          name: collision.peer.name,
+          branch: collision.peer.branch,
         },
         overlappingChangedPaths: collision.paths,
       }),
@@ -118,8 +128,8 @@ export class CoordinateFeatureConflictsUseCase {
     // A model response is NEVER an unconditional write. Re-read the affected
     // source and peer, branch diffs and HEADs before applying its judgment.
     const current = await this.observe(featureId);
-    if (!current || current === 'unavailable' ||
-        current.fingerprint !== evidence.fingerprint) return 'stale';
+    if (!current || current === 'unavailable' || current.fingerprint !== evidence.fingerprint)
+      return 'stale';
 
     if (decision.action === 'continue') return 'continued';
     // The peer must still hold work back. Already-landed peers do not provide
@@ -138,11 +148,14 @@ export class CoordinateFeatureConflictsUseCase {
       return null;
     }
 
-    const peers = (await this.features.list({ repositoryPath: source.repositoryPath }))
-      .filter((feature) =>
-        feature.id !== source.id && !feature.deletedAt && !feature.parentId &&
-        feature.branch !== source.branch && ELIGIBLE.has(feature.lifecycle)
-      );
+    const peers = (await this.features.list({ repositoryPath: source.repositoryPath })).filter(
+      (feature) =>
+        feature.id !== source.id &&
+        !feature.deletedAt &&
+        !feature.parentId &&
+        feature.branch !== source.branch &&
+        ELIGIBLE.has(feature.lifecycle)
+    );
 
     // Do not let a partial sample or ambiguous multi-peer collision become a
     // guessed ordering. A later version can model a full conflict graph.
@@ -166,23 +179,28 @@ export class CoordinateFeatureConflictsUseCase {
       }
 
       const ownPaths = new Set(observations[0].paths);
-      const collisions = observations.slice(1).map((entry) => ({
-        peer: entry.feature,
-        paths: entry.paths.filter((path) => ownPaths.has(path)),
-      })).filter((entry) => entry.paths.length > 0);
+      const collisions = observations
+        .slice(1)
+        .map((entry) => ({
+          peer: entry.feature,
+          paths: entry.paths.filter((path) => ownPaths.has(path)),
+        }))
+        .filter((entry) => entry.paths.length > 0);
 
       if (collisions.length === 0) return null;
       if (collisions.length !== 1 || collisions[0].paths.length > MAX_PATHS) {
         return 'unavailable';
       }
 
-      const fingerprint = JSON.stringify(observations.map((entry) => ({
-        id: entry.feature.id,
-        lifecycle: entry.feature.lifecycle,
-        parentId: entry.feature.parentId ?? null,
-        head: entry.head,
-        paths: entry.paths,
-      })));
+      const fingerprint = JSON.stringify(
+        observations.map((entry) => ({
+          id: entry.feature.id,
+          lifecycle: entry.feature.lifecycle,
+          parentId: entry.feature.parentId ?? null,
+          head: entry.head,
+          paths: entry.paths,
+        }))
+      );
       return { source, collision: collisions[0], fingerprint };
     } catch {
       // No git evidence is not permission to guess about possible interference.
